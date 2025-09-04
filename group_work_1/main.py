@@ -1,7 +1,7 @@
-
 from pathlib import Path
 from matplotlib import pyplot as plt
 import numpy as np
+from hilbert import perform_hilbert_transform, plot_hilbert_components
 
 
 def plot_fft(signal: np.ndarray, fs: int, tag: str | None = None):
@@ -50,6 +50,13 @@ def main():
     # Raw signal
     plot_signal(t, signal)
     plot_fft(signal, fs)
+    
+    # Perform Hilbert Transform on raw signal
+    save_path = "group_work_1/plots"
+    Path(save_path).mkdir(parents=True, exist_ok=True)
+    
+    hilbert_results = perform_hilbert_transform(signal)
+    plot_hilbert_components(t, signal, hilbert_results, save_path=save_path)
 
     # Adding offset
     signal_with_offset = signal + offset_amplitude  # Adding DC offset
