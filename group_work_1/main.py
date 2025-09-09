@@ -4,6 +4,28 @@ from matplotlib import pyplot as plt
 from scipy.signal import chirp
 import numpy as np
 
+import pywt
+
+def wavelet(x, fs, tag = ""):
+    plt.figure()
+    scales = np.logspace(1.1,2,400)
+    wavelet = pywt.ContinuousWavelet('cmor1-2')
+    coefficients, frequency = pywt.cwt(x, scales, wavelet, sampling_period=1/fs)
+    plt.pcolormesh(
+        range(len(x)),
+        frequency,
+        np.abs(coefficients),
+        shading="auto",
+        cmap="viridis",
+    )
+    plt.xlabel("Time [s]")
+    plt.ylabel("Frequency [Hz]")
+    plt.title(f"WT of the Signal {f'with {tag}' if tag else ''}")
+    plt.colorbar(label="Magnitude")
+    plt.grid()
+    plt.savefig(f"group_work_1/plots/wt_plot{'_' + '_'.join(tag.split(' ')) if tag else ''}.png", dpi=300)
+    
+
 
 def plot_fft(signal: np.ndarray, fs: int, tag: str | None = None):
     n = len(signal)
@@ -59,28 +81,40 @@ def main():
     # Raw signal
     plot_signal(t, signal)
     plot_fft(signal, fs)
+    wavelet(signal, fs)
 
     # Offset analysis
     signal_with_offset = signal + offset_amplitude  # Adding DC offset
     plot_signal(t, signal_with_offset, tag="offset")
     plot_fft(signal_with_offset, fs, tag="offset")
-
+    wavelet(signal_with_offset, fs, tag="offset")
+    
     # White noise analysis
     signal_with_noise = signal + np.random.normal(mu, sigma, size=signal.shape)  # Adding white noise
 
     plot_signal(t, signal_with_noise, tag="white noise")
     plot_fft(signal_with_noise, fs, tag="white noise")
+    wavelet(signal_with_noise, fs, tag="white noise")
 
     # White noise + offset analysis
     signal_with_noise_and_offset = signal_with_noise + offset_amplitude  # Adding DC offset
     plot_signal(t, signal_with_noise_and_offset, tag="white noise and offset")
     plot_fft(signal_with_noise_and_offset, fs, tag="white noise and offset")
+    wavelet(signal_with_noise_and_offset, fs, tag="white noise and offset")
 
     # Chirp analysis
     signal_with_chirp = signal + chirp_signal  # Adding chirp signal
     plot_signal(t, signal_with_chirp, tag="chirp")
     plot_fft(signal_with_chirp, fs, tag="chirp")
+    wavelet(signal_with_chirp, fs, tag="chirp")
 
+    plt.figure()
+    plt.plot(t, signal * 1e6)  # Convert to microvolts
+    plt.xlabel("Time [s]")
+    plt.ylabel("Amplitude [$\\mu V$]")
+    plt.title("Signal 1")
+    plt.grid()
+    plt.show()
 
 if __name__ == "__main__":
     main()
