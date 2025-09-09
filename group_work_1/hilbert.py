@@ -3,16 +3,35 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
 
-def perform_hilbert_transform(signal_data):
+def perform_hilbert_transform(signal_data, preserve_offset=False):
     """
     Performs Hilbert transform on input signal and returns components
+    
+    Parameters:
+    -----------
+    signal_data : array_like
+        Input signal
+    preserve_offset : bool, optional
+        If True, preserves DC offset in the analysis by adding it back to the real part
+        
+    Returns:
+    --------
+    dict
+        Dictionary containing Hilbert transform components
     """
+    # Calculate mean (DC offset) if we want to preserve it
+    dc_offset = np.mean(signal_data) if preserve_offset else 0
+    
     # Perform Hilbert transform - use asarray to handle type checking
     analytic_signal = np.asarray(signal.hilbert(signal_data))
     
     # Extract real and imaginary parts with array indexing
     real_part = analytic_signal.view(float)[::2]  # Get even-indexed elements
     imag_part = analytic_signal.view(float)[1::2]  # Get odd-indexed elements
+    
+    # Add DC offset back to real part if requested
+    if preserve_offset:
+        real_part = real_part + dc_offset
     
     # Calculate derived properties
     amplitude_envelope = np.sqrt(real_part**2 + imag_part**2)
@@ -25,7 +44,8 @@ def perform_hilbert_transform(signal_data):
         'imag_part': imag_part,
         'amplitude_envelope': amplitude_envelope,
         'instantaneous_phase': instantaneous_phase,
-        'instantaneous_frequency': instantaneous_frequency
+        'instantaneous_frequency': instantaneous_frequency,
+        'dc_offset': dc_offset
     }
 
 def plot_hilbert_components(t, signal_data, hilbert_results, show=True, save_path=None):
@@ -90,6 +110,16 @@ def plot_hilbert_components(t, signal_data, hilbert_results, show=True, save_pat
     plt.plot(real_part[indices] * 1e6, 
              imag_part[indices] * 1e6, 
              'ro', markersize=5)
+    
+    # If DC offset is present, mark it on the plot
+    if 'dc_offset' in hilbert_results and abs(hilbert_results['dc_offset']) > 1e-10:
+        dc_offset = hilbert_results['dc_offset'] * 1e6  # Convert to microvolts
+        plt.plot(dc_offset, 0, 'bx', markersize=12, label=f'DC Offset: {dc_offset:.2f} µV')
+        plt.legend()
+        
+        # Add an arrow from origin to DC offset
+        plt.annotate('', xy=(dc_offset, 0), xytext=(0, 0),
+                    arrowprops=dict(facecolor='blue', shrink=0.05, width=2, headwidth=8))
     
     plt.xlabel("Real Part [$\\mu V$]")
     plt.ylabel("Imaginary Part [$\\mu V$]")
