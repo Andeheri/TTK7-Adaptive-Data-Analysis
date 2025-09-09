@@ -1,18 +1,18 @@
-
 from pathlib import Path
 from matplotlib import pyplot as plt
-from scipy.signal import chirp
+from scipy.signal import chirp, stft
 import numpy as np
 
 import pywt
 
-def wavelet(x, fs, tag = ""):
+
+def wavelet(x, fs, tag: str = ""):
     plt.figure()
-    scales = np.logspace(1.1,2,400)
-    wavelet = pywt.ContinuousWavelet('cmor1-2')
-    coefficients, frequency = pywt.cwt(x, scales, wavelet, sampling_period=1/fs)
+    scales = np.logspace(1.1, 2, 400)
+    wave = pywt.ContinuousWavelet('cmor1-2')
+    coefficients, frequency = pywt.cwt(x, scales, wave, sampling_period=1/fs)
     plt.pcolormesh(
-        range(len(x)),
+        range(len(x)),  # sample index (kept to match your original)
         frequency,
         np.abs(coefficients),
         shading="auto",
@@ -24,12 +24,49 @@ def wavelet(x, fs, tag = ""):
     plt.colorbar(label="Magnitude")
     plt.grid()
     plt.savefig(f"group_work_1/plots/wt_plot{'_' + '_'.join(tag.split(' ')) if tag else ''}.png", dpi=300)
-    
+
+from scipy.signal import stft
+import numpy as np
+from matplotlib import pyplot as plt
+
+def plot_stft(x: np.ndarray, fs: int, tag: str | None = None,
+              win_sec: float = 1, overlap: float = 0.9, fmax: float = 25.0):
+    # Window & overlap
+    nperseg = max(32, min(len(x), int(win_sec * fs)))
+    noverlap = int(np.clip(overlap, 0, 0.99) * nperseg)
+
+    # Zero-padding to next pow2 for smoother frequency grid
+    nfft = 1 << int(np.ceil(np.log2(nperseg)))
+
+    f, t, Zxx = stft(
+        x, fs=fs, window="hann",
+        nperseg=nperseg, noverlap=noverlap, nfft=nfft,
+        boundary=None, padded=False, detrend=False, return_onesided=True
+    )
+
+    S = np.abs(Zxx)
+
+    plt.figure()
+    plt.pcolormesh(t, f, S, shading="gouraud", cmap="viridis")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Frequency [Hz]")
+    plt.title(f"STFT {f'– {tag}' if tag else ''}")
+    plt.ylim(0, 16)
+    plt.grid()
+    cbar = plt.colorbar()
+    cbar.set_label("Magnitude")
+    plt.tight_layout()
+    plt.savefig(
+        f"group_work_1/plots/stft_plot{'_' + '_'.join(tag.split()) if tag else ''}.png",
+        dpi=300
+    )
+
+
 
 
 def plot_fft(signal: np.ndarray, fs: int, tag: str | None = None):
     n = len(signal)
-    f = np.fft.rfftfreq(n, d=1/fs)
+    f = np.fft.rfftfreq(n, d=1 / fs)
     fft_values = np.fft.rfft(signal)
     magnitude = np.abs(fft_values) / n
 
@@ -40,7 +77,7 @@ def plot_fft(signal: np.ndarray, fs: int, tag: str | None = None):
     plt.title(f"FFT of the Signal {f'with {tag}' if tag else ''}")
     plt.grid()
     plt.savefig(f"group_work_1/plots/fft_plot{'_' + '_'.join(tag.split(' ')) if tag else ''}.png", dpi=300)
-    plt.show(block = False)
+    plt.show(block=False)
 
 
 def plot_signal(t: np.ndarray, signal: np.ndarray, tag: str | None = None):
@@ -51,7 +88,7 @@ def plot_signal(t: np.ndarray, signal: np.ndarray, tag: str | None = None):
     plt.title(f"Signal {f'with {tag}' if tag else ''} in Time Domain")
     plt.grid()
     plt.savefig(f"group_work_1/plots/signal_plot{'_' + '_'.join(tag.split(' ')) if tag else ''}.png", dpi=300)
-    plt.show(block = False)
+    plt.show(block=False)
 
 
 def main():
@@ -59,7 +96,7 @@ def main():
     if not filepath.exists():
         print(f"File {filepath} does not exist.")
         return
-    
+
     fs = 100  # Sampling frequency
 
     signal = np.loadtxt(filepath, delimiter=",")
@@ -75,46 +112,53 @@ def main():
     end_frequency = 10  # Hz
     chirp_duration = t[-1]  # Duration of the chirp signal
     chirp_amplitude = 10e-6  # 10 microvolts
-    
-    chirp_signal = chirp_amplitude * chirp(t, f0=start_frequency, f1=end_frequency, t1=chirp_duration, method="linear")
-    
+
+    chirp_signal = chirp_amplitude * chirp(
+        t, f0=start_frequency, f1=end_frequency, t1=chirp_duration, method="linear"
+    )
+
     # Raw signal
     plot_signal(t, signal)
     plot_fft(signal, fs)
     wavelet(signal, fs)
+    plot_stft(signal, fs)
 
     # Offset analysis
     signal_with_offset = signal + offset_amplitude  # Adding DC offset
     plot_signal(t, signal_with_offset, tag="offset")
     plot_fft(signal_with_offset, fs, tag="offset")
     wavelet(signal_with_offset, fs, tag="offset")
-    
+    plot_stft(signal_with_offset, fs, tag="offset")
+
     # White noise analysis
     signal_with_noise = signal + np.random.normal(mu, sigma, size=signal.shape)  # Adding white noise
-
     plot_signal(t, signal_with_noise, tag="white noise")
     plot_fft(signal_with_noise, fs, tag="white noise")
     wavelet(signal_with_noise, fs, tag="white noise")
+    plot_stft(signal_with_noise, fs, tag="white noise")
 
     # White noise + offset analysis
     signal_with_noise_and_offset = signal_with_noise + offset_amplitude  # Adding DC offset
     plot_signal(t, signal_with_noise_and_offset, tag="white noise and offset")
     plot_fft(signal_with_noise_and_offset, fs, tag="white noise and offset")
     wavelet(signal_with_noise_and_offset, fs, tag="white noise and offset")
+    plot_stft(signal_with_noise_and_offset, fs, tag="white noise and offset")
 
     # Chirp analysis
     signal_with_chirp = signal + chirp_signal  # Adding chirp signal
     plot_signal(t, signal_with_chirp, tag="chirp")
     plot_fft(signal_with_chirp, fs, tag="chirp")
     wavelet(signal_with_chirp, fs, tag="chirp")
+    plot_stft(signal_with_chirp, fs, tag="chirp")
 
-    plt.figure()
-    plt.plot(t, signal * 1e6)  # Convert to microvolts
-    plt.xlabel("Time [s]")
-    plt.ylabel("Amplitude [$\\mu V$]")
-    plt.title("Signal 1")
-    plt.grid()
-    plt.show()
+    # plt.figure()
+    # plt.plot(t, signal * 1e6)  # Convert to microvolts
+    # plt.xlabel("Time [s]")
+    # plt.ylabel("Amplitude [$\\mu V$]")
+    # plt.title("Signal 1")
+    # plt.grid()
+    # plt.show()
+
 
 if __name__ == "__main__":
     main()
